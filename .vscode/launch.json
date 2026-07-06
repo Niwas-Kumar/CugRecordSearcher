@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-CugDirectoryApplication<cugDirectory>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.irctc.cugDirectory.CugDirectoryApplication",
+            "projectName": "cugDirectory",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
