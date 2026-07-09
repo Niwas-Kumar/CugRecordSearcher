@@ -26,8 +26,8 @@ public class ExcelDataLoader implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        FileInputStream file = new FileInputStream("./data/cug-source.xlsx");
-        Workbook workbook = new XSSFWorkbook(file);
+       try( FileInputStream file = new FileInputStream("./data/cug-source.xlsx");
+        Workbook workbook = new XSSFWorkbook(file)){
         Sheet sheet = workbook.getSheet("Sheet1");
 
         Row headerRow = sheet.getRow(1);
@@ -69,6 +69,7 @@ public class ExcelDataLoader implements CommandLineRunner {
 
         System.out.println(">>> Excel import complete!");
     }
+ }
 
     private String getCellAsString(Cell cell) {
         if (cell == null) return "";
