@@ -31,3 +31,14 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Environment variable files — NEVER commit real secrets ───────────────
+.env
+.env.dev
+.env.prod
+.env.local
+*.env
+
+### Logs ─────────────────────────────────────────────────────────────────
+logs/
+*.log
