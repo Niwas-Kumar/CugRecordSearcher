@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Management — CUG Directory</title>
+<link rel="stylesheet" th:href="@{/style.css}">
+<style>
+  /* ── Tabs ── */
+  .tab-bar{ display:flex; gap:4px; margin-bottom:20px; flex-wrap:wrap; }
+  .tab{ background:var(--paper); border:1px solid var(--line); color:var(--muted); padding:9px 18px; border-radius:9px; cursor:pointer; font-size:13.5px; font-weight:500; font-family:var(--sans); transition:all .15s; }
+  .tab.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  /* ── Search in edit tab ── */
+  .rec-search-box{ background:var(--card); border-radius:12px; box-shadow:0 4px 16px -6px rgba(15,37,68,0.15); display:flex; align-items:center; padding:5px 5px 5px 16px; border:1px solid var(--line); gap:6px; }
+  .rec-search-box svg{ flex-shrink:0; color:var(--muted); }
+  #recSearch{ flex:1; border:none; outline:none; font-size:15px; padding:11px 8px; font-family:var(--sans); background:transparent; color:var(--ink); }
+  .rec-search-btn{ background:var(--navy); color:#fff; border:none; padding:10px 18px; border-radius:9px; font-size:13.5px; font-weight:600; cursor:pointer; font-family:var(--sans); white-space:nowrap; transition:background .15s; }
+  .rec-search-btn:hover{ background:#1b3c68; }
+  #recClearBtn{ border:none; background:transparent; color:var(--muted); width:30px; height:30px; border-radius:7px; cursor:pointer; display:none; align-items:center; justify-content:center; font-size:15px; }
+  #recClearBtn.show{ display:flex; }
+  .search-hint{ text-align:center; color:var(--muted); padding:36px 20px; font-size:13.5px; }
+
+  /* ── Results table ── */
+  .rec-table-wrap{ overflow-x:auto; margin-top:16px; }
+  table.rec-table{ width:100%; border-collapse:collapse; font-size:13px; }
+  table.rec-table th{ text-align:left; background:#eef1f5; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; padding:10px 12px; font-weight:700; white-space:nowrap; }
+  table.rec-table td{ padding:10px 12px; border-top:1px solid var(--line); word-break:break-word; }
+  table.rec-table tr:hover td{ background:#fafbfc; }
+  .edit-btn{ background:var(--navy); color:#fff; border:none; padding:5px 12px; border-radius:6px; font-size:12px; cursor:pointer; font-family:var(--sans); transition:background .15s; }
+  .edit-btn:hover{ background:#1b3c68; }
+
+  /* ── Add / Import form grids ── */
+  .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .form-grid .full{ grid-column:1 / -1; }
+  .form-actions{ display:flex; gap:10px; margin-top:18px; justify-content:flex-end; }
+
+  /* ── Import dropzone ── */
+  .drop-zone{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    border:2px dashed var(--line); border-radius:14px;
+    padding:48px 32px; text-align:center; cursor:pointer;
+    transition:border-color .2s, background .2s; gap:6px;
+    background:#fafbfc;
+  }
+  .drop-zone:hover, .drop-zone.drag-over{ border-color:var(--navy); background:#eef3f9; }
+  .drop-zone svg{ color:#8fa8c4; margin-bottom:4px; }
+  .drop-zone p{ margin:0; font-size:14.5px; font-weight:600; color:var(--ink); }
+  .drop-zone span{ font-size:12.5px; color:var(--muted); }
+  .file-chosen{ margin-top:4px; font-size:13px; color:var(--navy); font-weight:600; }
+  .import-result{ background:#eef1f5; border-radius:10px; padding:16px 18px; margin-top:16px; font-size:13.5px; }
+  .import-result .row{ display:flex; gap:24px; flex-wrap:wrap; margin-bottom:8px; }
+  .import-result .stat{ display:flex; flex-direction:column; }
+  .import-result .stat .n{ font-size:22px; font-weight:700; color:var(--navy); font-family:var(--mono); }
+  .import-result .stat .l{ font-size:11.5px; color:var(--muted); }
+  .import-warnings{ margin-top:10px; max-height:160px; overflow-y:auto; font-size:12px; color:var(--muted); }
+  .import-warnings li{ margin-bottom:3px; }
+
+  /* ── Edit modal ── */
+  .modal-overlay{ position:fixed; inset:0; background:rgba(10,22,45,0.5); display:none; align-items:center; justify-content:center; z-index:100; padding:20px; backdrop-filter:blur(3px); }
+  .modal-overlay.open{ display:flex; }
+  .modal{ background:var(--card); border-radius:16px; width:100%; max-width:560px; max-height:90vh; overflow-y:auto; box-shadow:0 24px 60px -12px rgba(10,22,45,0.4); }
+  .modal-header{ display:flex; align-items:center; justify-content:space-between; padding:20px 24px 14px; border-bottom:1px solid var(--line); }
+  .modal-header h2{ font-size:17px; margin:0; }
+  .modal-cug{ font-family:var(--mono); font-size:12.5px; color:var(--muted); margin-top:3px; }
+  .modal-close{ background:var(--paper); border:1px solid var(--line); color:var(--muted); width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; }
+  .modal-body{ padding:20px 24px; }
+  .modal-footer{ padding:14px 24px 20px; border-top:1px solid var(--line); display:flex; gap:10px; justify-content:flex-end; }
+  .edit-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .edit-field{ display:flex; flex-direction:column; gap:5px; }
+  .edit-field.full{ grid-column:1 / -1; }
+  .edit-field label{ font-size:11px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+  .edit-field input, .edit-field select{ padding:9px 12px; border:1px solid var(--line); border-radius:8px; font-size:13.5px; font-family:var(--sans); background:var(--paper); color:var(--ink); transition:border-color .15s; }
+  .edit-field input:focus, .edit-field select:focus{ outline:none; border-color:var(--navy); background:#fff; }
+
+  @media(max-width:540px){
+    .form-grid, .edit-grid{ grid-template-columns:1fr; }
+    .form-grid .full, .edit-field.full{ grid-column:1; }
+    .modal-overlay{ align-items:flex-end; padding:0; }
+    .modal{ border-radius:14px 14px 0 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">CUG Directory</div>
+  <button class="ham-btn" id="hamBtn" aria-label="Menu" aria-expanded="false">
+    <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+  </button>
+  <nav id="mainNav">
+    <span class="who">Signed in as <span id="whoUsername">…</span> · Admin</span>
+    <a th:href="@{/}">Search</a>
+    <a th:href="@{/admin}">Dashboard</a>
+    <a th:href="@{/admin/users}">Users</a>
+    <a class="logout-btn" onclick="logout()">Log out</a>
+  </nav>
+</div>
+
+<div class="container">
+  <h1 class="page-title">Data Management</h1>
+  <p class="page-sub">Search and edit existing records, add a new record individually, or bulk-import from an Excel file.</p>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab active" data-tab="edit">🔍 Search &amp; Edit Records</button>
+    <button class="tab" data-tab="add">➕ Add Single Record</button>
+    <button class="tab" data-tab="import">📂 Import Excel File</button>
+  </div>
+
+  <!-- ── TAB 1: Search & Edit ────────────────────────────────────────── -->
+  <div class="tab-panel active" id="tab-edit">
+    <div class="section-card">
+      <div class="rec-search-box">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="recSearch" placeholder="Search by name or CUG number…" autocomplete="off">
+        <button id="recClearBtn" title="Clear">✕</button>
+        <button class="rec-search-btn" id="recSearchBtn">Search</button>
+      </div>
+
+      <div id="recResults">
+        <div class="search-hint">Enter a name or CUG number above and click <strong>Search</strong>.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB 2: Add Single Record ───────────────────────────────────── -->
+  <div class="tab-panel" id="tab-add">
+    <div class="section-card">
+      <h2 style="font-size:15px; margin:0 0 18px;">Add New CUG Record</h2>
+      <div class="alert-error" id="addError" style="display:none;"></div>
+      <div class="alert-success" id="addSuccess" style="display:none;"></div>
+      <form id="addForm">
+        <div class="form-grid">
+          <div class="field">
+            <label>CUG Number <span style="color:var(--danger);">*</span></label>
+            <input type="text" id="a-cugNumber" placeholder="10 digits e.g. 9876543210" maxlength="10" required>
+          </div>
+          <div class="field">
+            <label>Full Name <span style="color:var(--danger);">*</span></label>
+            <input type="text" id="a-name" placeholder="e.g. Ramesh Kumar" required>
+          </div>
+          <div class="field">
+            <label>Employee Code</label>
+            <input type="text" id="a-empCode" placeholder="e.g. E12345">
+          </div>
+          <div class="field">
+            <label>Grade</label>
+            <input type="text" id="a-grade" placeholder="e.g. JA">
+          </div>
+          <div class="field full">
+            <label>Designation</label>
+            <input type="text" id="a-designation" placeholder="e.g. Junior Engineer">
+          </div>
+          <div class="field full">
+            <label>Department</label>
+            <input type="text" id="a-department" placeholder="e.g. Civil Engineering">
+          </div>
+          <div class="field">
+            <label>Location</label>
+            <input type="text" id="a-location" placeholder="e.g. Mumbai">
+          </div>
+          <div class="field">
+            <label>Office / Unit</label>
+            <input type="text" id="a-office" placeholder="e.g. DRM Office">
+          </div>
+          <div class="field">
+            <label>Entitlement (₹)</label>
+            <input type="number" id="a-entitlement" placeholder="0" min="0">
+          </div>
+          <div class="field">
+            <label>Roaming Charge (₹)</label>
+            <input type="number" id="a-roamingCharge" placeholder="0" min="0">
+          </div>
+          <div class="field full">
+            <label>Status</label>
+            <select id="a-status">
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+              <option value="Surrendered">Surrendered</option>
+              <option value="Transferred">Transferred</option>
+              <option value="Retired">Retired</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="small-btn ghost" onclick="resetAddForm()">Clear</button>
+          <button type="submit" class="small-btn" id="addBtn">Add Record</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── TAB 3: Import Excel ────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-import">
+    <div class="section-card">
+      <h2 style="font-size:15px; margin:0 0 6px;">Import from Excel File</h2>
+      <p style="font-size:13px; color:var(--muted); margin:0 0 18px;">
+        Upload your <code>cug-source.xlsx</code> file. The import is an <strong>upsert</strong> — existing CUG Numbers are updated, new ones are inserted. Existing records NOT in the file are left unchanged.
+      </p>
+
+      <div style="background:#fff8ec; border:1px solid #f0d8a0; border-radius:10px; padding:12px 16px; font-size:13px; color:#7a5a10; margin-bottom:18px;">
+        <strong>⚠ Required format:</strong> Sheet must be named <code>CUG_Records</code> with columns: <code>CUG Number</code>, <code>Full Name</code>, <code>Designation</code>, <code>Department</code>, <code>Employee Code</code>, <code>Grade</code>, <code>Location</code>, <code>Office / Unit</code>, <code>Status</code>, <code>Entitlement (Rs)</code>, <code>Roaming Plan</code>.
+      </div>
+
+      <div class="alert-error" id="importError" style="display:none;"></div>
+
+      <label class="drop-zone" id="dropZone" for="excelFile">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p>Click to choose Excel file, or drag &amp; drop here</p>
+        <span>Supports .xlsx files up to 20 MB</span>
+        <div class="file-chosen" id="fileChosen"></div>
+      </label>
+      <input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none;">
+
+      <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+        <button class="small-btn" id="importBtn" disabled onclick="doImport()">Upload &amp; Import</button>
+      </div>
+
+      <div id="importResult" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Edit Modal ─────────────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="editOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h2 id="modalTitle">Edit Record</h2>
+        <div class="modal-cug" id="modalCug"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert-error" id="editError" style="display:none;"></div>
+      <div class="alert-success" id="editSuccess" style="display:none;"></div>
+      <div class="edit-grid">
+        <input type="hidden" id="editId">
+        <div class="edit-field full">
+          <label>Full Name</label>
+          <input type="text" id="f-name">
+        </div>
+        <div class="edit-field">
+          <label>Employee Code</label>
+          <input type="text" id="f-empCode">
+        </div>
+        <div class="edit-field">
+          <label>Grade</label>
+          <input type="text" id="f-grade">
+        </div>
+        <div class="edit-field full">
+          <label>Designation</label>
+          <input type="text" id="f-designation">
+        </div>
+        <div class="edit-field full">
+          <label>Department</label>
+          <input type="text" id="f-department">
+        </div>
+        <div class="edit-field">
+          <label>Location</label>
+          <input type="text" id="f-location">
+        </div>
+        <div class="edit-field">
+          <label>Office / Unit</label>
+          <input type="text" id="f-office">
+        </div>
+        <div class="edit-field">
+          <label>Entitlement (₹)</label>
+          <input type="number" id="f-entitlement" min="0">
+        </div>
+        <div class="edit-field">
+          <label>Roaming Charge (₹)</label>
+          <input type="number" id="f-roamingCharge" min="0">
+        </div>
+        <div class="edit-field full">
+          <label>Status</label>
+          <select id="f-status">
+            <option>Active</option>
+            <option>Inactive</option>
+            <option>Surrendered</option>
+            <option>Transferred</option>
+            <option>Retired</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="small-btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="small-btn" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<script th:src="@{/auth-helper.js}"></script>
+<script>
+// ── Auth ─────────────────────────────────────────────────────────────────────
+(async function init() {
+  const me = await requireLogin();
+  if (!me) return;
+  if (me.role !== 'ADMIN') { window.location.href = '/'; return; }
+  document.getElementById('whoUsername').textContent = me.username;
+})();
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s || '').replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+// ── TAB 1: Search & Edit ─────────────────────────────────────────────────────
+const recSearch    = document.getElementById('recSearch');
+const recClearBtn  = document.getElementById('recClearBtn');
+const recSearchBtn = document.getElementById('recSearchBtn');
+const recResults   = document.getElementById('recResults');
+
+async function doRecSearch() {
+  const q = recSearch.value.trim();
+  if (!q) {
+    recResults.innerHTML = '<div class="search-hint">Enter a name or CUG number above and click <strong>Search</strong>.</div>';
+    return;
+  }
+  recSearchBtn.disabled = true;
+  recSearchBtn.textContent = 'Searching…';
+  try {
+    const res = await apiFetch('/api/admin/records/search?q=' + encodeURIComponent(q));
+    const data = await res.json();
+    if (data.length === 0) {
+      recResults.innerHTML = '<div class="search-hint">No records matched <strong>' + esc(q) + '</strong>.</div>';
+    } else {
+      window._recData = data;
+      recResults.innerHTML = `
+        <div class="rec-table-wrap">
+          <table class="rec-table">
+            <thead><tr>
+              <th>CUG Number</th><th>Name</th><th>Emp Code</th>
+              <th>Designation</th><th>Department</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody>
+              ${data.map((r, i) => `<tr>
+                <td style="font-family:var(--mono); font-size:12.5px;">${esc(r.cugNumber)}</td>
+                <td style="font-weight:600;">${esc(r.name)}</td>
+                <td>${esc(r.empCode||'—')}</td>
+                <td>${esc(r.designation||'—')}</td>
+                <td>${esc(r.department||'—')}</td>
+                <td>${esc(r.status||'—')}</td>
+                <td><button class="edit-btn" data-idx="${i}">Edit</button></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+      recResults.querySelectorAll('.edit-btn').forEach(btn =>
+        btn.addEventListener('click', () => openModal(window._recData[+btn.dataset.idx])));
+    }
+  } catch(e) {
+    recResults.innerHTML = '<div class="search-hint">Error loading results.</div>';
+  }
+  recSearchBtn.disabled = false;
+  recSearchBtn.textContent = 'Search';
+}
+
+recSearchBtn.addEventListener('click', doRecSearch);
+recSearch.addEventListener('keydown', e => { if (e.key === 'Enter') doRecSearch(); });
+recSearch.addEventListener('input', e => recClearBtn.classList.toggle('show', e.target.value.length > 0));
+recClearBtn.addEventListener('click', () => {
+  recSearch.value = '';
+  recClearBtn.classList.remove('show');
+  recResults.innerHTML = '<div class="search-hint">Enter a name or CUG number above and click <strong>Search</strong>.</div>';
+});
+
+// ── Edit Modal ────────────────────────────────────────────────────────────────
+function openModal(record) {
+  document.getElementById('editId').value        = record.id;
+  document.getElementById('modalTitle').textContent = record.name;
+  document.getElementById('modalCug').textContent   = 'CUG: ' + record.cugNumber;
+  document.getElementById('f-name').value        = record.name        || '';
+  document.getElementById('f-empCode').value     = record.empCode     || '';
+  document.getElementById('f-grade').value       = record.grade       || '';
+  document.getElementById('f-designation').value = record.designation || '';
+  document.getElementById('f-department').value  = record.department  || '';
+  document.getElementById('f-location').value    = record.location    || '';
+  document.getElementById('f-office').value      = record.office      || '';
+  document.getElementById('f-entitlement').value = record.entitlement ?? '';
+  document.getElementById('f-roamingCharge').value = record.roamingCharge ?? '';
+  const sel = document.getElementById('f-status');
+  [...sel.options].forEach(o => o.selected = o.value === (record.status || 'Active'));
+  document.getElementById('editError').style.display = 'none';
+  document.getElementById('editSuccess').style.display = 'none';
+  document.getElementById('editOverlay').classList.add('open');
+}
+function closeModal() { document.getElementById('editOverlay').classList.remove('open'); }
+document.getElementById('editOverlay').addEventListener('click', e => { if (e.target === document.getElementById('editOverlay')) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+async function saveEdit() {
+  const id = document.getElementById('editId').value;
+  const errBox = document.getElementById('editError');
+  const okBox  = document.getElementById('editSuccess');
+  errBox.style.display = 'none'; okBox.style.display = 'none';
+  const payload = {
+    name:          document.getElementById('f-name').value.trim(),
+    empCode:       document.getElementById('f-empCode').value.trim(),
+    grade:         document.getElementById('f-grade').value.trim(),
+    designation:   document.getElementById('f-designation').value.trim(),
+    department:    document.getElementById('f-department').value.trim(),
+    location:      document.getElementById('f-location').value.trim(),
+    office:        document.getElementById('f-office').value.trim(),
+    entitlement:   document.getElementById('f-entitlement').value.trim(),
+    roamingCharge: document.getElementById('f-roamingCharge').value.trim(),
+    status:        document.getElementById('f-status').value
+  };
+  if (!payload.name) { errBox.textContent = 'Name cannot be empty.'; errBox.style.display = 'block'; return; }
+  try {
+    const res  = await apiFetch(`/api/admin/records/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (res.ok) {
+      okBox.textContent = '✓ Saved successfully.'; okBox.style.display = 'block';
+      doRecSearch();
+      setTimeout(closeModal, 1000);
+    } else {
+      errBox.textContent = data.error || 'Save failed.'; errBox.style.display = 'block';
+    }
+  } catch(e) { errBox.textContent = 'Network error.'; errBox.style.display = 'block'; }
+}
+
+// ── TAB 2: Add Single Record ─────────────────────────────────────────────────
+function resetAddForm() {
+  ['a-cugNumber','a-name','a-empCode','a-grade','a-designation','a-department',
+   'a-location','a-office','a-entitlement','a-roamingCharge'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('a-status').value = 'Active';
+  document.getElementById('addError').style.display = 'none';
+  document.getElementById('addSuccess').style.display = 'none';
+}
+
+document.getElementById('addForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const errBox = document.getElementById('addError');
+  const okBox  = document.getElementById('addSuccess');
+  const btn    = document.getElementById('addBtn');
+  errBox.style.display = 'none'; okBox.style.display = 'none';
+  btn.disabled = true; btn.textContent = 'Adding…';
+  const payload = {
+    cugNumber:     document.getElementById('a-cugNumber').value.trim(),
+    name:          document.getElementById('a-name').value.trim(),
+    empCode:       document.getElementById('a-empCode').value.trim(),
+    grade:         document.getElementById('a-grade').value.trim(),
+    designation:   document.getElementById('a-designation').value.trim(),
+    department:    document.getElementById('a-department').value.trim(),
+    location:      document.getElementById('a-location').value.trim(),
+    office:        document.getElementById('a-office').value.trim(),
+    entitlement:   document.getElementById('a-entitlement').value.trim() || '0',
+    roamingCharge: document.getElementById('a-roamingCharge').value.trim() || '0',
+    status:        document.getElementById('a-status').value
+  };
+  try {
+    const res  = await apiFetch('/api/admin/records', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (res.ok) {
+      okBox.textContent = '✓ Record added: ' + data.name + ' (' + data.cugNumber + ')';
+      okBox.style.display = 'block';
+      resetAddForm();
+    } else {
+      errBox.textContent = data.error || 'Failed to add record.'; errBox.style.display = 'block';
+    }
+  } catch(e) { errBox.textContent = 'Network error.'; errBox.style.display = 'block'; }
+  btn.disabled = false; btn.textContent = 'Add Record';
+});
+
+// ── TAB 3: Import Excel ──────────────────────────────────────────────────────
+const fileInput  = document.getElementById('excelFile');
+const dropZone   = document.getElementById('dropZone');
+const fileChosen = document.getElementById('fileChosen');
+const importBtn  = document.getElementById('importBtn');
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) {
+    fileChosen.textContent = '📄 ' + fileInput.files[0].name;
+    importBtn.disabled = false;
+  }
+});
+
+['dragover','dragenter'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('drag-over'); }));
+['dragleave','drop'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('drag-over'); }));
+dropZone.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0];
+  if (f) { fileInput.files = e.dataTransfer.files; fileChosen.textContent = '📄 ' + f.name; importBtn.disabled = false; }
+});
+
+async function doImport() {
+  const file = fileInput.files[0];
+  if (!file) return;
+  const errBox = document.getElementById('importError');
+  const resultDiv = document.getElementById('importResult');
+  errBox.style.display = 'none'; resultDiv.style.display = 'none';
+  importBtn.disabled = true; importBtn.textContent = 'Uploading…';
+
+  const form = new FormData();
+  form.append('file', file);
+
+  try {
+    const res  = await fetch('/api/admin/data/import', { method:'POST', credentials:'same-origin', body: form });
+    const data = await res.json();
+    if (!res.ok) {
+      errBox.textContent = data.error || 'Import failed.'; errBox.style.display = 'block';
+    } else {
+      resultDiv.style.display = 'block';
+      const warnHtml = data.warnings && data.warnings.length > 0
+        ? `<p style="margin:8px 0 4px; font-size:12.5px; font-weight:600; color:var(--muted);">${data.warnings.length} warning(s):</p>
+           <ul class="import-warnings">${data.warnings.map(w => '<li>' + esc(w) + '</li>').join('')}</ul>`
+        : '<p style="font-size:12.5px; color:var(--muted); margin:6px 0 0;">No warnings — clean import ✓</p>';
+
+      resultDiv.innerHTML = `
+        <div class="import-result">
+          <div class="row">
+            <div class="stat"><span class="n">${data.inserted}</span><span class="l">New Records Added</span></div>
+            <div class="stat"><span class="n">${data.updated}</span><span class="l">Existing Records Updated</span></div>
+            <div class="stat"><span class="n">${data.skipped}</span><span class="l">Rows Skipped</span></div>
+          </div>
+          ${warnHtml}
+        </div>`;
+    }
+  } catch(e) { errBox.textContent = 'Network error during upload.'; errBox.style.display = 'block'; }
+  importBtn.disabled = false; importBtn.textContent = 'Upload & Import';
+}
+
+// ── Hamburger ─────────────────────────────────────────────────────────────
+document.getElementById('hamBtn').addEventListener('click', function() {
+  this.classList.toggle('open');
+  document.getElementById('mainNav').classList.toggle('nav-open');
+  this.setAttribute('aria-expanded', this.classList.contains('open'));
+});
+document.querySelectorAll('#mainNav a').forEach(a => a.addEventListener('click', () => {
+  document.getElementById('hamBtn').classList.remove('open');
+  document.getElementById('mainNav').classList.remove('nav-open');
+}));
+</script>
+</body>
+</html>

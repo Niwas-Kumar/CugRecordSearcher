@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manage Users — CUG Directory</title>
+<link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">CUG Directory</div>
+  <button class="ham-btn" id="hamBtn" aria-label="Menu" aria-expanded="false">
+    <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+  </button>
+  <nav id="mainNav">
+    <span class="who">Signed in as <span id="whoUsername">…</span> · Admin</span>
+    <a th:href="@{/}">Search</a>
+    <a th:href="@{/admin}">Dashboard</a>
+    <a th:href="@{/admin/records}">Edit Records</a>
+    <a class="logout-btn" onclick="logout()">Log out</a>
+  </nav>
+</div>
+
+<div class="container">
+  <h1 class="page-title">Manage Users</h1>
+  <p class="page-sub">Create individual login accounts for each person who should have access, or deactivate one.</p>
+
+  <div class="alert-error" id="errorBox" style="display:none;"></div>
+
+  <div class="section-card">
+    <h2>Add a New User</h2>
+    <form class="inline-form" id="addUserForm">
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="newUsername" required>
+      </div>
+      <div class="field">
+        <label>Temporary Password</label>
+        <input type="password" id="newPassword" required minlength="6">
+      </div>
+      <div class="field">
+        <label>Role</label>
+        <select id="newRole">
+          <option value="USER">User</option>
+          <option value="ADMIN">Admin</option>
+        </select>
+      </div>
+      <button class="small-btn" type="submit">Add User</button>
+    </form>
+    <p style="font-size:12px; color:var(--muted); margin-top:12px; margin-bottom:0;">
+      Share the username and temporary password with the person directly. They can change it themselves under
+      "Change Password" after logging in.
+    </p>
+  </div>
+
+  <div class="section-card">
+    <h2>All Accounts</h2>
+    <div style="overflow-x:auto;">
+      <table class="data-table">
+        <thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th></th></tr></thead>
+        <tbody id="usersBody">
+          <tr><td colspan="5" style="text-align:center; color:var(--muted); padding:20px;">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script th:src="@{/auth-helper.js}"></script>
+<script>
+let currentUsers = [];
+
+async function loadUsers() {
+  const users = await apiFetch('/api/admin/users').then(r => r.json());
+  currentUsers = users;
+  const tbody = document.getElementById('usersBody');
+  tbody.innerHTML = users.map((u, i) => `
+    <tr>
+      <td>${u.username}</td>
+      <td><span class="badge ${u.role === 'ADMIN' ? 'badge-admin' : 'badge-user'}">${u.role}</span></td>
+      <td>${u.active ? 'Active' : 'Disabled'}</td>
+      <td style="font-family:var(--mono); font-size:12.5px;">${u.createdAt.replace('T', ' ').substring(0, 16)}</td>
+      <td><button class="small-btn ${u.active ? 'ghost' : ''}" data-idx="${i}">${u.active ? 'Disable' : 'Re-enable'}</button></td>
+    </tr>`).join('');
+
+  tbody.querySelectorAll('button[data-idx]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const user = currentUsers[parseInt(btn.dataset.idx, 10)];
+      await apiFetch(`/api/admin/users/${user.id}/toggle`, { method: 'POST' });
+      loadUsers();
+    });
+  });
+}
+
+(async function init() {
+  const me = await requireLogin();
+  if (!me) return;
+  if (me.role !== 'ADMIN') { window.location.href = '/'; return; }
+  document.getElementById('whoUsername').textContent = me.username;
+  loadUsers();
+})();
+
+document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('errorBox');
+  errorBox.style.display = 'none';
+
+  const res = await apiFetch('/api/admin/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username: document.getElementById('newUsername').value,
+      password: document.getElementById('newPassword').value,
+      role: document.getElementById('newRole').value
+    })
+  });
+  const data = await res.json();
+
+  if (res.ok) {
+    document.getElementById('addUserForm').reset();
+    loadUsers();
+  } else {
+    errorBox.textContent = data.error || 'Something went wrong.';
+    errorBox.style.display = 'block';
+  }
+});
+
+// ── Hamburger ─────────────────────────────────────────────────────────────
+document.getElementById('hamBtn').addEventListener('click', function() {
+  this.classList.toggle('open');
+  document.getElementById('mainNav').classList.toggle('nav-open');
+  this.setAttribute('aria-expanded', this.classList.contains('open'));
+});
+document.querySelectorAll('#mainNav a').forEach(a => a.addEventListener('click', () => {
+  document.getElementById('hamBtn').classList.remove('open');
+  document.getElementById('mainNav').classList.remove('nav-open');
+}));
+</script>
+</body>
+</html>

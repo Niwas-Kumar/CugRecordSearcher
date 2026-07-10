@@ -1,5 +1,6 @@
 package com.irctc.cugDirectory.model;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -7,11 +8,14 @@ import jakarta.persistence.Id;
 
 @Entity
 public class CugRecord {
-   
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(unique = true, nullable = false, length = 10)
     private String cugNumber;
+
     private String name;
     private String designation;
     private String department;
@@ -20,6 +24,24 @@ public class CugRecord {
     private int entitlement;
     private int roamingCharge;
     private String office;
+    private String location;
+    private String status;
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
 
     public String getOffice() {
         return office;

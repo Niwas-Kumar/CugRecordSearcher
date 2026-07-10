@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel — CUG Directory</title>
+<link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">CUG Directory</div>
+  <button class="ham-btn" id="hamBtn" aria-label="Menu" aria-expanded="false">
+    <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+  </button>
+  <nav id="mainNav">
+    <span class="who">Signed in as <span id="whoUsername">…</span> · Admin</span>
+    <a th:href="@{/}">Search</a>
+    <a th:href="@{/admin/records}">Edit Records</a>
+    <a th:href="@{/admin/users}">Manage Users</a>
+    <a class="logout-btn" onclick="logout()">Log out</a>
+  </nav>
+</div>
+
+<div class="container">
+  <h1 class="page-title">Admin Panel</h1>
+  <p class="page-sub">Usage overview and access logs — who signed in, what was searched, and which records were viewed.</p>
+
+  <div class="stat-row">
+    <div class="stat-card"><div class="num" id="statUsers">–</div><div class="lbl">Total user accounts</div></div>
+    <div class="stat-card"><div class="num" id="statRecords">–</div><div class="lbl">Directory records</div></div>
+    <div class="stat-card"><div class="num" id="statLogs">–</div><div class="lbl">Logged events (all time)</div></div>
+  </div>
+
+  <div class="section-card">
+    <h2>Recent Activity (last 300 events)</h2>
+    <div style="overflow-x:auto;">
+      <table class="data-table">
+        <thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Detail</th></tr></thead>
+        <tbody id="logsBody">
+          <tr><td colspan="4" style="text-align:center; color:var(--muted); padding:20px;">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script th:src="@{/auth-helper.js}"></script>
+<script>
+(async function init() {
+  const me = await requireLogin();
+  if (!me) return;
+  if (me.role !== 'ADMIN') { window.location.href = '/'; return; }
+  document.getElementById('whoUsername').textContent = me.username;
+
+  const [stats, logs] = await Promise.all([
+    apiFetch('/api/admin/stats').then(r => r.json()),
+    apiFetch('/api/admin/logs').then(r => r.json())
+  ]);
+
+  document.getElementById('statUsers').textContent = stats.totalUsers;
+  document.getElementById('statRecords').textContent = stats.totalRecords;
+  document.getElementById('statLogs').textContent = stats.totalLogs;
+
+  const tbody = document.getElementById('logsBody');
+  if (logs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--muted); padding:20px;">No activity logged yet.</td></tr>';
+  } else {
+    tbody.innerHTML = logs.map(log => `
+      <tr>
+        <td style="white-space:nowrap; font-family:var(--mono); font-size:12.5px;">${log.timestamp.replace('T', ' ').substring(0, 19)}</td>
+        <td>${log.username}</td>
+        <td><span class="badge badge-${log.action}">${log.action}</span></td>
+        <td>${log.detail || '—'}</td>
+      </tr>`).join('');
+  }
+})();
+
+// ── Hamburger ─────────────────────────────────────────────────────────────
+document.getElementById('hamBtn').addEventListener('click', function() {
+  this.classList.toggle('open');
+  document.getElementById('mainNav').classList.toggle('nav-open');
+  this.setAttribute('aria-expanded', this.classList.contains('open'));
+});
+document.querySelectorAll('#mainNav a').forEach(a => a.addEventListener('click', () => {
+  document.getElementById('hamBtn').classList.remove('open');
+  document.getElementById('mainNav').classList.remove('nav-open');
+}));
+</script>
+</body>
+</html>

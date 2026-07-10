@@ -1,0 +1,24 @@
+# Render.com deployment configuration
+# See: https://render.com/docs/render-yaml-reference
+
+services:
+  - type: web
+    name: cug-directory
+    runtime: java
+    buildCommand: mvn clean package -DskipTests
+    startCommand: java -jar target/cugDirectory-0.0.1-SNAPSHOT.jar
+    envVars:
+      - key: DB_URL
+        value: jdbc:mysql://<YOUR_MYSQL_HOST>:3306/cug_directory?useSSL=true&serverTimezone=UTC
+      - key: DB_USERNAME
+        value: <YOUR_DB_USERNAME>
+      - key: DB_PASSWORD
+        sync: false   # set this as a secret in the Render dashboard
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false   # set this as a secret in the Render dashboard
+      - key: JAVA_TOOL_OPTIONS
+        value: "-Xmx512m"
+    healthCheckPath: /actuator/health
+    autoDeploy: true
