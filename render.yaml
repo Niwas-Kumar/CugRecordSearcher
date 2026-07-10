@@ -9,7 +9,7 @@ services:
     startCommand: java -jar target/cugDirectory-0.0.1-SNAPSHOT.jar
     envVars:
       - key: DB_URL
-        value: postgresql://cug_db_user:LlkmHr1gdirZgFCaE4BtGrm8UngmwS4K@dpg-d98fvjt8nd3s73c9tqs0-a.singapore-postgres.render.com/cug_db
+        value: postgresql://neondb_owner:npg_5Kw3JahkDFLu@ep-jolly-salad-aomnwz22-pooler.c-2.ap-southeast-1.aws.neon.tech/CUG-DB?sslmode=require&channel_binding=require
       - key: DB_USERNAME
         value: <neondb_owner>
       - key: DB_PASSWORD
