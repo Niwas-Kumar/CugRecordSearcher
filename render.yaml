@@ -1,23 +1,46 @@
-# Render.com deployment configuration
-# See: https://render.com/docs/render-yaml-reference
+# render.yaml — Render deployment blueprint
+# Docs: https://render.com/docs/blueprint-spec
+#
+# ⚠  NEVER put real credentials here.
+#    All secrets are set in the Render Dashboard under:
+#    Service → Environment → "Add Environment Variable"
 
 services:
   - type: web
     name: cug-directory
     runtime: docker
     dockerfilePath: ./Dockerfile
+    plan: free
+
+    # All sensitive values come from Render's secret environment variables.
+    # Set these in the Render Dashboard — NOT here.
     envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+
+      - key: PORT
+        value: 10000
+
+      # ── Database (set these as secrets in Render Dashboard) ──────────────
+      # DB_URL        → jdbc:postgresql://<host>:5432/cug_directory
+      # DB_USERNAME   → your PostgreSQL username
+      # DB_PASSWORD   → your PostgreSQL password (mark as Secret)
       - key: DB_URL
-        value: jdbc:postgresql://ep-jolly-salad-aomnwz22-pooler.c-2.ap-southeast-1.aws.neon.tech/CUG-DB?sslmode=require&channel_binding=require
+        sync: false          # Render will prompt you to fill this in the dashboard
+
       - key: DB_USERNAME
-        value: neondb_owner
+        sync: false
+
       - key: DB_PASSWORD
-        sync: false   # set this as a secret in the Render dashboard
+        sync: false
+
+      # ── Admin credentials (set as secrets in Render Dashboard) ──────────
+      # ADMIN_USERNAME  → admin panel login username
+      # ADMIN_PASSWORD  → use a strong password (mark as Secret)
       - key: ADMIN_USERNAME
-        value: admin
+        sync: false
+
       - key: ADMIN_PASSWORD
-        sync: false   # set this as a secret in the Render dashboard
-      - key: JAVA_TOOL_OPTIONS
-        value: "-Xmx512m"
-    healthCheckPath: /actuator/health
-    autoDeploy: true
+        sync: false
+
+    healthCheckPath: /api/ping
